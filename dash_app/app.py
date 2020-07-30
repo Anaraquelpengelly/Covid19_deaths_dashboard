@@ -18,6 +18,7 @@ import pathlib
 # get relative data
 
 DATA_PATH = pathlib.Path(__file__).parent.joinpath("data")
+ASSET_PATH = pathlib.Path(__file__).parent.joinpath("assets")
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
@@ -27,6 +28,8 @@ colors = {
     'background': '#111111',
     'text': '#FCF3CF '
 }
+#####--Get the data together:
+
 # assume you have a "long-form" data frame
 # see https://plotly.com/python/px-arguments/ for more options
 #TODO need to make an app folder and an assets folder and a data folder inside! 
@@ -51,11 +54,20 @@ with_pop=pd.merge(gp_cov_lon, pop_all, how='left', left_on=['Area_name'], right_
 with_pop=with_pop.drop(columns=['AGE GROUP', 'AREA'])
 with_pop=with_pop.rename(columns={2020:'Projected_2020_pop'})
 
-
 with_pop['deaths_per_100t']=with_pop['cum_deaths']/with_pop['Projected_2020_pop']*100000
 with_pop=with_pop.sort_values(by='deaths_per_100t', ascending = False)
 
-#now fig
+##data for map:
+#import geojson
+import json
+with open(ASSET_PATH.joinpath('Local_Authority_Districts_(December_2017)_Generalised_Clipped_Boundaries_in_Great_Britain.geojson')) as f:
+    const = json.load(f)
+#get data for week 27
+week_27=with_pop[with_pop['Week_number'] == 27]
+#rename area code to match the geojson:
+week_27=week_27.rename(columns={'Area_code':'lad17cd', 'Area_name':'lad17nm' })
+
+#####-- Now make the figs
 figD = px.line(gp_cov_lon, x="Week_number", y="deaths", color="Area_name",
               line_group="Area_name", hover_name="Area_name")
 figCD = px.line(gp_cov_lon, x='Week_number', y='cum_deaths', color='Area_name',
@@ -63,7 +75,13 @@ figCD = px.line(gp_cov_lon, x='Week_number', y='cum_deaths', color='Area_name',
 figCDP = px.line(with_pop, x='Week_number', y='deaths_per_100t', color='Area_name', line_group='Area_name',
              hover_name='Area_name')
 
-### Define layout:
+map_c = px.choropleth_mapbox(week_27, geojson=const, color="cum_deaths", color_continuous_scale="Oryel",
+                    locations='lad17nm', featureidkey="properties.lad17nm",labels={'cum_deaths':'cumulative deaths'}, hover_name='lad17nm', 
+                          animation_frame='Week_number', animation_group='lad17nm', opacity=0.7,
+                   center={"lat": 51.50853, "lon": -0.12574}, mapbox_style="stamen-toner", zoom=9
+                  )
+
+#####-- Define layout:
 figD.update_layout(
     plot_bgcolor=colors['background'],
     paper_bgcolor=colors['background'],
@@ -77,6 +95,11 @@ figCD.update_layout(
 )
 
 figCDP.update_layout(
+    plot_bgcolor=colors['background'],
+    paper_bgcolor=colors['background'],
+    font_color=colors['text']
+)
+map_c.update_layout(
     plot_bgcolor=colors['background'],
     paper_bgcolor=colors['background'],
     font_color=colors['text']
@@ -119,17 +142,30 @@ app.layout = html.Div(style={'backgroundColor': colors['background']}, children=
     dcc.Graph(
         id='cum-deaths-pop-graph',
         figure=figCDP
+    ),
+
+    html.Div(children='Map of Adjusted Cumulative Lab Confirmed COVID19 Deaths in London per 100, 000', style={
+        'textAlign': 'center',
+        'color': colors['text']
+    }),
+
+    dcc.Graph(
+        id='cum-deaths-pop-map',
+        figure=map_c
     )
-    # ,
 
-    # html.Div(children='Map of Adjusted Cumulative Lab Confirmed COVID19 Deaths in London per 100, 000', style={
-    #     'textAlign': 'center',
-    #     'color': colors['text']
-    # }),
 
+## the below only half worked!
     # html.Iframe(
     #     id='map',
-    #     srcDoc=open('<name_of_map.html>', 'r').read(), width='100%', height='600'
+    #     #---
+    #     # your_folium_html_string = '...'
+    #     # html.Iframe(srcDoc=your_folium_html_string)
+    #     #---
+    #     #srcDoc=open('london_chloro_cum_deaths_box.html', 'r').read(), 
+    #     srcDoc = open(ASSET_PATH.joinpath('london_chloro_cum_deaths_box.html'), 'r').read(), 
+    #     width='100%', 
+    #     height='600'
     # )
 ])
 
