@@ -26,7 +26,7 @@ Jinja2==2.11.2
 jupyter-client==6.1.6
 jupyter-core==4.6.3
 MarkupSafe==1.1.1
-numpy==1.19.0
+numpy==1.22.0
 pandas==1.0.5
 parso==0.7.0
 patsy==0.5.1
